@@ -1,4 +1,6 @@
-# 💰 Finova — AI Financial Coach        Live Link- https://finova-app.streamlit.app/
+# 💰 Finova — AI Financial Coach       
+
+Live Link- https://finova-app.streamlit.app/
 
 <div align="center">
 
