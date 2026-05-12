@@ -13,10 +13,7 @@ import streamlit as st
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 
-from google.adk.agents import LlmAgent, SequentialAgent
-from google.adk.runners import Runner
-from google.adk.sessions import InMemorySessionService
-from google.genai import types
+from groq import Groq
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -25,7 +22,7 @@ load_dotenv()
 
 APP_NAME: str = "ai_financial_coach"
 USER_ID: str = "user_001"
-GEMINI_MODEL: str = "gemini-2.0-flash"
+GROQ_MODEL: str = "llama-3.3-70b-versatile"
 
 # ---------------------------------------------------------------------------
 # Sub-models
@@ -129,70 +126,56 @@ def parse_csv_transactions(file_content: bytes) -> Dict[str, Any]:
 
 class FinanceAdvisorSystem:
     def __init__(self) -> None:
-        self.session_service = InMemorySessionService()
-        self.budget_analysis_agent = LlmAgent(
-            name="BudgetAnalysisAgent", model=GEMINI_MODEL,
-            description="Analyses spending patterns and recommends budget improvements.",
-            instruction=("You are a Budget Analysis Agent specialised in reviewing financial "
-                "transactions and expenses. You are the first of three financial advisor agents."),
-            output_schema=BudgetAnalysis, output_key="budget_analysis",
+        self.client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+
+        self.agents = {
+            "budget_analysis": (
+                "You are a Budget Analysis Agent. Analyze the user's financial data and return ONLY a valid JSON object "
+                "matching this schema exactly: {\"total_expenses\": float, \"monthly_income\": float, "
+                "\"spending_categories\": [{\"category\": str, \"amount\": float, \"percentage\": float}], "
+                "\"recommendations\": [{\"category\": str, \"suggestion\": str, \"potential_savings\": float}]}. "
+                "No explanation, no markdown, only raw JSON."
+            ),
+            "savings_strategy": (
+                "You are a Savings Strategy Agent. Analyze the user's financial data and return ONLY a valid JSON object "
+                "matching this schema exactly: {\"emergency_fund\": {\"recommended_amount\": float, \"current_amount\": float, \"months_covered\": float}, "
+                "\"recommendations\": [{\"account_type\": str, \"monthly_contribution\": float, \"rationale\": str}], "
+                "\"automation_techniques\": [{\"technique\": str, \"description\": str}]}. "
+                "No explanation, no markdown, only raw JSON."
+            ),
+            "debt_reduction": (
+                "You are a Debt Reduction Agent. Analyze the user's financial data and return ONLY a valid JSON object "
+                "matching this schema exactly: {\"total_debt\": float, \"debts\": [{\"name\": str, \"balance\": float, \"interest_rate\": float, \"minimum_payment\": float}], "
+                "\"payoff_plans\": {\"avalanche\": [str], \"snowball\": [str], \"recommended_plan\": str}, "
+                "\"recommendations\": [{\"suggestion\": str, \"impact\": str}]}. "
+                "No explanation, no markdown, only raw JSON."
+            ),
+        }
+
+    def _call_agent(self, agent_key: str, financial_data: Dict[str, Any]) -> Dict[str, Any]:
+        response = self.client.chat.completions.create(
+            model=GROQ_MODEL,
+            messages=[
+                {"role": "system", "content": self.agents[agent_key]},
+                {"role": "user", "content": json.dumps(financial_data)},
+            ],
+            temperature=0.3,
         )
-        self.savings_strategy_agent = LlmAgent(
-            name="SavingsStrategyAgent", model=GEMINI_MODEL,
-            description="Recommends savings strategies based on income and expenses.",
-            instruction=("You are a Savings Strategy Agent specialised in creating personalised "
-                "savings plans. You are the second agent in the sequence."),
-            output_schema=SavingsStrategy, output_key="savings_strategy",
-        )
-        self.debt_reduction_agent = LlmAgent(
-            name="DebtReductionAgent", model=GEMINI_MODEL,
-            description="Creates optimised debt payoff plans.",
-            instruction=("You are a Debt Reduction Agent specialised in creating debt payoff "
-                "strategies. You are the final agent in the sequence."),
-            output_schema=DebtReduction, output_key="debt_reduction",
-        )
-        self.coordinator_agent = SequentialAgent(
-            name="FinanceCoordinatorAgent",
-            description="Coordinates the three finance agents.",
-            sub_agents=[self.budget_analysis_agent, self.savings_strategy_agent, self.debt_reduction_agent],
-        )
-        self.runner = Runner(agent=self.coordinator_agent, app_name=APP_NAME, session_service=self.session_service)
+        raw = response.choices[0].message.content
+        return parse_json_safely(raw, {})
 
     async def analyze_finances(self, financial_data: Dict[str, Any]) -> Dict[str, Any]:
-        session_id = f"finance_session_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        try:
-            initial_state: Dict[str, Any] = {
-                "monthly_income": financial_data.get("monthly_income", 0),
-                "dependants": financial_data.get("dependants", 0),
-                "transactions": financial_data.get("transactions", []),
-                "manual_expenses": financial_data.get("manual_expenses", {}),
-                "debts": financial_data.get("debts", []),
-            }
-            session = self.session_service.create_session(
-                app_name=APP_NAME, user_id=USER_ID, session_id=session_id, state=initial_state)
-            if session.state.get("transactions"):
-                self._preprocess_transactions(session)
-            if session.state.get("manual_expenses"):
-                self._preprocess_manual_expenses(session)
-            default_results = self._create_default_results(financial_data)
-            user_content = types.Content(role="user", parts=[types.Part(text=json.dumps(financial_data))])
-            async for event in self.runner.run_async(user_id=USER_ID, session_id=session_id, new_message=user_content):
-                if event.is_final_response() and event.author == self.coordinator_agent.name:
-                    break
-            updated_session = self.session_service.get_session(app_name=APP_NAME, user_id=USER_ID, session_id=session_id)
-            results: Dict[str, Any] = {}
-            for key in ["budget_analysis", "savings_strategy", "debt_reduction"]:
-                value = updated_session.state.get(key)
-                results[key] = parse_json_safely(value, default_results[key]) if value else default_results[key]
-            return results
-        finally:
-            self.session_service.delete_session(app_name=APP_NAME, user_id=USER_ID, session_id=session_id)
-
-    def _preprocess_transactions(self, session: Any) -> None:
-        pass
-
-    def _preprocess_manual_expenses(self, session: Any) -> None:
-        pass
+        default = self._create_default_results(financial_data)
+        results = {}
+        for key in ["budget_analysis", "savings_strategy", "debt_reduction"]:
+            try:
+                results[key] = self._call_agent(key, financial_data)
+                if not results[key]:
+                    results[key] = default[key]
+            except Exception as e:
+                logging.exception(f"{key} agent failed")
+                results[key] = default[key]
+        return results
 
     def _create_default_results(self, financial_data: Dict[str, Any]) -> Dict[str, Any]:
         return {
