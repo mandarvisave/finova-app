@@ -656,7 +656,7 @@ def main() -> None:
     st.markdown('<div class="glass-card">', unsafe_allow_html=True)
     col1, col2, col3 = st.columns([2, 1, 2])
     with col1:
-        monthly_income = st.number_input("Monthly Income ($)", min_value=0.0, value=5000.0, step=100.0)
+        monthly_income = st.number_input("Monthly Income (₹)", min_value=0.0, value=5000.0, step=100.0)
     with col2:
         dependants = st.number_input("Dependants", min_value=0, value=0, step=1)
     with col3:
@@ -668,18 +668,18 @@ def main() -> None:
     st.markdown('<div class="glass-card">', unsafe_allow_html=True)
     ec1, ec2, ec3, ec4 = st.columns(4)
     with ec1:
-        housing = st.number_input("Housing ($)", min_value=0.0, value=0.0, step=50.0)
-        food = st.number_input("Food ($)", min_value=0.0, value=0.0, step=50.0)
+        housing = st.number_input("Housing (₹)", min_value=0.0, value=0.0, step=50.0)
+        food = st.number_input("Food (₹)", min_value=0.0, value=0.0, step=50.0)
     with ec2:
-        transport = st.number_input("Transportation ($)", min_value=0.0, value=0.0, step=25.0)
-        utilities = st.number_input("Utilities ($)", min_value=0.0, value=0.0, step=25.0)
+        transport = st.number_input("Transportation (₹)", min_value=0.0, value=0.0, step=25.0)
+        utilities = st.number_input("Utilities (₹)", min_value=0.0, value=0.0, step=25.0)
     with ec3:
-        healthcare = st.number_input("Healthcare ($)", min_value=0.0, value=0.0, step=25.0)
-        entertainment = st.number_input("Entertainment ($)", min_value=0.0, value=0.0, step=25.0)
+        healthcare = st.number_input("Healthcare (₹)", min_value=0.0, value=0.0, step=25.0)
+        entertainment = st.number_input("Entertainment (₹)", min_value=0.0, value=0.0, step=25.0)
     with ec4:
-        education = st.number_input("Education ($)", min_value=0.0, value=0.0, step=25.0)
-        savings_input = st.number_input("Current Savings ($)", min_value=0.0, value=0.0, step=100.0)
-    other = st.number_input("Other Expenses ($)", min_value=0.0, value=0.0, step=25.0)
+        education = st.number_input("Education (₹)", min_value=0.0, value=0.0, step=25.0)
+        savings_input = st.number_input("Current Savings (₹)", min_value=0.0, value=0.0, step=100.0)
+    other = st.number_input("Other Expenses (₹)", min_value=0.0, value=0.0, step=25.0)
     st.markdown('</div>', unsafe_allow_html=True)
 
     # ── Debts ─────────────────────────────────────────────────────────────
@@ -689,11 +689,11 @@ def main() -> None:
     with dc1:
         debt_name = st.text_input("Debt Name", placeholder="e.g. Car Loan")
     with dc2:
-        debt_balance = st.number_input("Balance ($)", min_value=0.0, value=0.0, step=100.0)
+        debt_balance = st.number_input("Balance (₹)", min_value=0.0, value=0.0, step=100.0)
     with dc3:
         debt_rate = st.number_input("Interest Rate (%)", min_value=0.0, value=0.0, step=0.1)
     with dc4:
-        debt_min = st.number_input("Min. Payment ($)", min_value=0.0, value=0.0, step=25.0)
+        debt_min = st.number_input("Min. Payment (₹)", min_value=0.0, value=0.0, step=25.0)
     st.markdown('</div>', unsafe_allow_html=True)
 
     debts = []
